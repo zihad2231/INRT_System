@@ -1,0 +1,1105 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum OrganizationStatus {
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+
+  @@map("organization_status")
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  INVITED
+  DELETED
+
+  @@map("user_status")
+}
+
+enum TeamStatus {
+  ACTIVE
+  ON_HOLD
+  COMPLETED
+  ARCHIVED
+
+  @@map("team_status")
+}
+
+enum ProjectStatus {
+  PLANNING
+  ACTIVE
+  ON_HOLD
+  COMPLETED
+  CANCELLED
+  ARCHIVED
+
+  @@map("project_status")
+}
+
+enum ProjectPaperStatus {
+  ACTIVE
+  ARCHIVED
+
+  @@map("project_paper_status")
+}
+
+enum PaperAssignmentType {
+  PRIMARY_READER
+  COLLABORATOR
+  REVIEWER
+
+  @@map("paper_assignment_type")
+}
+
+enum PaperAssignmentStatus {
+  ASSIGNED
+  READING
+  EXTRACTING
+  SUBMITTED
+  REVIEW
+  REVISION_REQUIRED
+  APPROVED
+  COMPLETED
+  CANCELLED
+
+  @@map("paper_assignment_status")
+}
+
+enum PaperConflictResolution {
+  BLOCKED
+  COLLABORATION_REQUESTED
+  APPROVED
+  REJECTED
+
+  @@map("paper_conflict_resolution")
+}
+
+enum ResearchAnswerType {
+  TEXT
+  LONG_TEXT
+  NUMBER
+  BOOLEAN
+  DATE
+  URL
+  SELECT
+  MULTI_SELECT
+
+  @@map("research_answer_type")
+}
+
+enum ResearchSubmissionStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  REVISION_REQUIRED
+  APPROVED
+  COMPLETED
+
+  @@map("research_submission_status")
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+
+  @@map("task_priority")
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  REVIEW
+  REVISION_REQUIRED
+  BLOCKED
+  COMPLETED
+  CANCELLED
+
+  @@map("task_status")
+}
+
+enum TodoStatus {
+  TODO
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+
+  @@map("todo_status")
+}
+
+enum NoticePriority {
+  URGENT
+  IMPORTANT
+  NORMAL
+
+  @@map("notice_priority")
+}
+
+enum NoticeScope {
+  CENTRAL
+  TEAM
+  INDIVIDUAL
+
+  @@map("notice_scope")
+}
+
+enum NoticeStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+
+  @@map("notice_status")
+}
+
+enum AssetCondition {
+  NEW
+  GOOD
+  FAIR
+  DAMAGED
+  RETIRED
+
+  @@map("asset_condition")
+}
+
+enum AssetStatus {
+  AVAILABLE
+  IN_USE
+  MAINTENANCE
+  LOST
+  RETIRED
+
+  @@map("asset_status")
+}
+
+model Organization {
+  id          String             @id @default(uuid()) @db.Uuid
+  name        String             @db.VarChar(150)
+  slug        String             @unique @db.VarChar(100)
+  logoUrl     String?            @map("logo_url")
+  description String?
+  email       String?            @db.VarChar(255)
+  phone       String?            @db.VarChar(50)
+  timezone    String             @default("Asia/Dhaka") @db.VarChar(50)
+  dateFormat  String             @default("YYYY-MM-DD") @map("date_format") @db.VarChar(30)
+  status      OrganizationStatus @default(ACTIVE)
+  createdAt   DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  users         User[]
+  roles         Role[]
+  researchAreas ResearchArea[]
+  skills        Skill[]
+  teams         Team[]
+  projects      Project[]
+  papers        Paper[]
+  questionSets  QuestionSet[]
+  notices       Notice[]
+  assets        Asset[]
+  auditLogs     AuditLog[]
+  notifications Notification[]
+  exportJobs    ExportJob[]
+
+  @@map("organizations")
+}
+
+model User {
+  id              String     @id @default(uuid()) @db.Uuid
+  organizationId  String     @map("organization_id") @db.Uuid
+  memberCode      String     @map("member_code") @db.VarChar(50)
+  email           String     @unique @db.VarChar(255)
+  passwordHash    String     @map("password_hash")
+  firstName       String     @map("first_name") @db.VarChar(100)
+  lastName        String?    @map("last_name") @db.VarChar(100)
+  fullName        String     @map("full_name") @db.VarChar(200)
+  profileImageUrl String?    @map("profile_image_url")
+  phone           String?    @db.VarChar(50)
+  bio             String?
+  joiningDate     DateTime?  @map("joining_date") @db.Date
+  status          UserStatus @default(INVITED)
+  lastLoginAt     DateTime?  @map("last_login_at") @db.Timestamptz(6)
+  createdAt       DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt       DateTime?  @map("deleted_at") @db.Timestamptz(6)
+
+  organization            Organization              @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  userRoles               UserRole[]
+  assignedUserRoles       UserRole[]                @relation("UserRoleAssigner")
+  sessions                Session[]
+  passwordResetTokens     PasswordResetToken[]
+  directPermissions       UserPermission[]          @relation("UserDirectPermission")
+  grantedPermissions      UserPermission[]          @relation("UserPermissionAssigner")
+  userResearchAreas       UserResearchArea[]
+  userSkills              UserSkill[]
+  teamMemberships         TeamMember[]
+  ledTeams                Team[]                    @relation("TeamLeader")
+  assignedTeamMembers     TeamMember[]              @relation("TeamMemberAssignedBy")
+  ownedProjects           Project[]                 @relation("ProjectOwner")
+  createdProjects         Project[]                 @relation("ProjectCreatedBy")
+  projectMemberships      ProjectMember[]
+  createdPapers           Paper[]                   @relation("PaperCreatedBy")
+  paperAssignments        PaperAssignment[]         @relation("PaperAssignmentUser")
+  assignedPaperRecords    PaperAssignment[]         @relation("PaperAssignmentAssignedBy")
+  createdProjectPapers    ProjectPaper[]            @relation("ProjectPaperAddedBy")
+  requestedPaperConflicts PaperAssignmentConflict[] @relation("PaperConflictRequester")
+  resolvedPaperConflicts  PaperAssignmentConflict[] @relation("PaperConflictResolver")
+  researchResponses       ResearchResponse[]
+  researchSubmissions     ResearchSubmission[]      @relation("ResearchSubmittedBy")
+  reviewedSubmissions     ResearchSubmission[]      @relation("ResearchReviewedBy")
+  createdQuestionSets     QuestionSet[]             @relation("QuestionSetCreatedBy")
+  createdTasks            Task[]                    @relation("TaskCreatedBy")
+  taskAssignments         TaskAssignee[]            @relation("TaskAssignedUser")
+  assignedTasks           TaskAssignee[]            @relation("TaskAssigneeAssignedBy")
+  createdTodos            Todo[]                    @relation("TodoCreatedBy")
+  assignedTodos           Todo[]                    @relation("TodoAssignee")
+  authoredNotices         Notice[]                  @relation("NoticeAuthor")
+  noticeTargets           NoticeUser[]
+  noticeAcknowledgements  NoticeAcknowledgement[]
+  assignedAssetRecords    AssetAssignment[]         @relation("AssetAssignedUser")
+  assetAssignmentActions  AssetAssignment[]         @relation("AssetAssignmentAssignedBy")
+  createdAssets           Asset[]                   @relation("AssetCreatedBy")
+  auditActions            AuditLog[]                @relation("AuditLogActor")
+  notifications           Notification[]
+  requestedExportJobs     ExportJob[]               @relation("ExportJobRequester")
+
+  @@unique([organizationId, memberCode])
+  @@index([organizationId, status])
+  @@map("users")
+}
+
+model Role {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  name           String   @db.VarChar(50)
+  code           String   @db.VarChar(50)
+  description    String?
+  isSystemRole   Boolean  @default(false) @map("is_system_role")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  userRoles    UserRole[]
+  permissions  RolePermission[]
+
+  @@unique([organizationId, code])
+  @@map("roles")
+}
+
+model Permission {
+  id          String  @id @default(uuid()) @db.Uuid
+  code        String  @unique @db.VarChar(100)
+  name        String  @db.VarChar(150)
+  module      String  @db.VarChar(100)
+  action      String  @db.VarChar(50)
+  description String?
+
+  roles           RolePermission[]
+  userPermissions UserPermission[]
+
+  @@map("permissions")
+}
+
+model UserRole {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  roleId     String   @map("role_id") @db.Uuid
+  assignedBy String?  @map("assigned_by") @db.Uuid
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user     User  @relation(fields: [userId], references: [id], onDelete: Restrict)
+  role     Role  @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  assigner User? @relation("UserRoleAssigner", fields: [assignedBy], references: [id], onDelete: SetNull)
+
+  @@unique([userId, roleId])
+  @@index([roleId])
+  @@map("user_roles")
+}
+
+model RolePermission {
+  id           String   @id @default(uuid()) @db.Uuid
+  roleId       String   @map("role_id") @db.Uuid
+  permissionId String   @map("permission_id") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Restrict)
+
+  @@unique([roleId, permissionId])
+  @@index([permissionId])
+  @@map("role_permissions")
+}
+
+model UserPermission {
+  id           String   @id @default(uuid()) @db.Uuid
+  userId       String   @map("user_id") @db.Uuid
+  permissionId String   @map("permission_id") @db.Uuid
+  granted      Boolean  @default(true)
+  assignedBy   String?  @map("assigned_by") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user       User       @relation("UserDirectPermission", fields: [userId], references: [id], onDelete: Restrict)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Restrict)
+  assigner   User?      @relation("UserPermissionAssigner", fields: [assignedBy], references: [id], onDelete: SetNull)
+
+  @@unique([userId, permissionId])
+  @@index([permissionId])
+  @@map("user_permissions")
+}
+
+model ResearchArea {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  name           String   @db.VarChar(150)
+  slug           String   @db.VarChar(150)
+  description    String?
+  parentId       String?  @map("parent_id") @db.Uuid
+  status         String   @default("ACTIVE") @db.VarChar(30)
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization          @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  parent       ResearchArea?         @relation("ResearchAreaHierarchy", fields: [parentId], references: [id], onDelete: Restrict)
+  children     ResearchArea[]        @relation("ResearchAreaHierarchy")
+  userAreas    UserResearchArea[]
+  teams        TeamResearchArea[]
+  projects     ProjectResearchArea[]
+  papers       Paper[]
+
+  @@unique([organizationId, slug])
+  @@index([organizationId, status])
+  @@map("research_areas")
+}
+
+model UserResearchArea {
+  id             String   @id @default(uuid()) @db.Uuid
+  userId         String   @map("user_id") @db.Uuid
+  researchAreaId String   @map("research_area_id") @db.Uuid
+  proficiency    String?  @db.VarChar(30)
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Restrict)
+  researchArea ResearchArea @relation(fields: [researchAreaId], references: [id], onDelete: Restrict)
+
+  @@unique([userId, researchAreaId])
+  @@index([researchAreaId])
+  @@map("user_research_areas")
+}
+
+model Skill {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  name           String   @db.VarChar(100)
+  category       String?  @db.VarChar(100)
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  users        UserSkill[]
+
+  @@unique([organizationId, name])
+  @@map("skills")
+}
+
+model UserSkill {
+  id              String   @id @default(uuid()) @db.Uuid
+  userId          String   @map("user_id") @db.Uuid
+  skillId         String   @map("skill_id") @db.Uuid
+  proficiency     String?  @db.VarChar(30)
+  yearsExperience Decimal? @map("years_experience") @db.Decimal(5, 2)
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Restrict)
+  skill Skill @relation(fields: [skillId], references: [id], onDelete: Restrict)
+
+  @@unique([userId, skillId])
+  @@index([skillId])
+  @@map("user_skills")
+}
+
+model Team {
+  id             String     @id @default(uuid()) @db.Uuid
+  organizationId String     @map("organization_id") @db.Uuid
+  teamCode       String     @map("team_code") @db.VarChar(50)
+  name           String     @db.VarChar(150)
+  description    String?
+  imageUrl       String?    @map("image_url")
+  teamLeaderId   String?    @map("team_leader_id") @db.Uuid
+  startDate      DateTime?  @map("start_date") @db.Date
+  targetDate     DateTime?  @map("target_date") @db.Date
+  status         TeamStatus @default(ACTIVE)
+  createdAt      DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime?  @map("deleted_at") @db.Timestamptz(6)
+
+  organization         Organization       @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  teamLeader           User?              @relation("TeamLeader", fields: [teamLeaderId], references: [id], onDelete: Restrict)
+  members              TeamMember[]
+  researchAreas        TeamResearchArea[]
+  projects             ProjectTeam[]
+  projectRecords       Project[]
+  tasks                Task[]
+  todos                Todo[]
+  notices              NoticeTeam[]
+  assignedAssetRecords AssetAssignment[]  @relation("AssetAssignedTeam")
+
+  @@unique([organizationId, teamCode])
+  @@index([organizationId, status])
+  @@map("teams")
+}
+
+model TeamMember {
+  id             String    @id @default(uuid()) @db.Uuid
+  teamId         String    @map("team_id") @db.Uuid
+  userId         String    @map("user_id") @db.Uuid
+  membershipRole String?   @map("membership_role") @db.VarChar(50)
+  joinedAt       DateTime? @map("joined_at") @db.Date
+  leftAt         DateTime? @map("left_at") @db.Date
+  isActive       Boolean   @default(true) @map("is_active")
+  assignedBy     String?   @map("assigned_by") @db.Uuid
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  team     Team  @relation(fields: [teamId], references: [id], onDelete: Restrict)
+  user     User  @relation(fields: [userId], references: [id], onDelete: Restrict)
+  assigner User? @relation("TeamMemberAssignedBy", fields: [assignedBy], references: [id], onDelete: SetNull)
+
+  @@unique([teamId, userId])
+  @@index([userId, isActive])
+  @@map("team_members")
+}
+
+model TeamResearchArea {
+  id             String @id @default(uuid()) @db.Uuid
+  teamId         String @map("team_id") @db.Uuid
+  researchAreaId String @map("research_area_id") @db.Uuid
+
+  team         Team         @relation(fields: [teamId], references: [id], onDelete: Restrict)
+  researchArea ResearchArea @relation(fields: [researchAreaId], references: [id], onDelete: Restrict)
+
+  @@unique([teamId, researchAreaId])
+  @@map("team_research_areas")
+}
+
+model Project {
+  id              String        @id @default(uuid()) @db.Uuid
+  organizationId  String        @map("organization_id") @db.Uuid
+  projectCode     String        @map("project_code") @db.VarChar(50)
+  title           String        @db.VarChar(255)
+  description     String?
+  ownerId         String?       @map("owner_id") @db.Uuid
+  defaultTeamId   String?       @map("default_team_id") @db.Uuid
+  startDate       DateTime?     @map("start_date") @db.Date
+  targetDate      DateTime?     @map("target_date") @db.Date
+  status          ProjectStatus @default(PLANNING)
+  progressPercent Decimal       @default(0) @map("progress_percent") @db.Decimal(5, 2)
+  createdBy       String        @map("created_by") @db.Uuid
+  createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt       DateTime?     @map("deleted_at") @db.Timestamptz(6)
+
+  organization        Organization              @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  owner               User?                     @relation("ProjectOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  creator             User                      @relation("ProjectCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
+  defaultTeam         Team?                     @relation(fields: [defaultTeamId], references: [id], onDelete: Restrict)
+  teams               ProjectTeam[]
+  members             ProjectMember[]
+  researchAreas       ProjectResearchArea[]
+  papers              ProjectPaper[]
+  assignments         PaperAssignment[]
+  assignmentConflicts PaperAssignmentConflict[]
+  questionSets        ProjectQuestionSet[]
+  researchResponses   ResearchResponse[]
+  researchSubmissions ResearchSubmission[]
+  tasks               Task[]
+  todos               Todo[]
+
+  @@unique([organizationId, projectCode])
+  @@index([organizationId, status])
+  @@index([organizationId, targetDate])
+  @@map("projects")
+}
+
+model ProjectTeam {
+  id        String   @id @default(uuid()) @db.Uuid
+  projectId String   @map("project_id") @db.Uuid
+  teamId    String   @map("team_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  team    Team    @relation(fields: [teamId], references: [id], onDelete: Restrict)
+
+  @@unique([projectId, teamId])
+  @@index([teamId])
+  @@map("project_teams")
+}
+
+model ProjectMember {
+  id          String    @id @default(uuid()) @db.Uuid
+  projectId   String    @map("project_id") @db.Uuid
+  userId      String    @map("user_id") @db.Uuid
+  projectRole String?   @map("project_role") @db.VarChar(50)
+  joinedAt    DateTime? @map("joined_at") @db.Date
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@unique([projectId, userId])
+  @@index([userId])
+  @@map("project_members")
+}
+
+model ProjectResearchArea {
+  id             String @id @default(uuid()) @db.Uuid
+  projectId      String @map("project_id") @db.Uuid
+  researchAreaId String @map("research_area_id") @db.Uuid
+
+  project      Project      @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  researchArea ResearchArea @relation(fields: [researchAreaId], references: [id], onDelete: Restrict)
+
+  @@unique([projectId, researchAreaId])
+  @@map("project_research_areas")
+}
+
+model Paper {
+  id              String   @id @default(uuid()) @db.Uuid
+  organizationId  String   @map("organization_id") @db.Uuid
+  paperCode       String   @unique @map("paper_code") @db.VarChar(50)
+  title           String
+  normalizedTitle String   @map("normalized_title")
+  authors         Json?    @db.JsonB
+  abstract        String?
+  publicationYear Int?     @map("publication_year")
+  journalName     String?  @map("journal_name") @db.VarChar(255)
+  doi             String?  @db.VarChar(255)
+  canonicalUrl    String?  @map("canonical_url")
+  pdfUrl          String?  @map("pdf_url")
+  imageUrl        String?  @map("image_url")
+  publisher       String?  @db.VarChar(255)
+  researchAreaId  String?  @map("research_area_id") @db.Uuid
+  metadata        Json?    @db.JsonB
+  createdBy       String   @map("created_by") @db.Uuid
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization        Organization              @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  researchArea        ResearchArea?             @relation(fields: [researchAreaId], references: [id], onDelete: Restrict)
+  creator             User                      @relation("PaperCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
+  identifiers         PaperIdentifier[]
+  projectRecords      ProjectPaper[]
+  assignments         PaperAssignment[]
+  assignmentConflicts PaperAssignmentConflict[]
+  researchResponses   ResearchResponse[]
+  researchSubmissions ResearchSubmission[]
+
+  @@unique([organizationId, normalizedTitle])
+  @@unique([organizationId, doi])
+  @@unique([organizationId, canonicalUrl])
+  @@index([organizationId, normalizedTitle])
+  @@index([organizationId, doi])
+  @@index([publicationYear])
+  @@map("papers")
+}
+
+model PaperIdentifier {
+  id              String   @id @default(uuid()) @db.Uuid
+  paperId         String   @map("paper_id") @db.Uuid
+  identifierType  String   @map("identifier_type") @db.VarChar(50)
+  identifierValue String   @map("identifier_value")
+  normalizedValue String   @map("normalized_value")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  paper Paper @relation(fields: [paperId], references: [id], onDelete: Restrict)
+
+  @@unique([identifierType, normalizedValue])
+  @@index([paperId])
+  @@map("paper_identifiers")
+}
+
+model ProjectPaper {
+  id        String             @id @default(uuid()) @db.Uuid
+  projectId String             @map("project_id") @db.Uuid
+  paperId   String             @map("paper_id") @db.Uuid
+  addedBy   String             @map("added_by") @db.Uuid
+  addedAt   DateTime           @default(now()) @map("added_at") @db.Timestamptz(6)
+  status    ProjectPaperStatus @default(ACTIVE)
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  paper   Paper   @relation(fields: [paperId], references: [id], onDelete: Restrict)
+  adder   User    @relation("ProjectPaperAddedBy", fields: [addedBy], references: [id], onDelete: Restrict)
+
+  @@unique([projectId, paperId])
+  @@index([paperId])
+  @@map("project_papers")
+}
+
+model PaperAssignment {
+  id              String                @id @default(uuid()) @db.Uuid
+  projectId       String                @map("project_id") @db.Uuid
+  paperId         String                @map("paper_id") @db.Uuid
+  userId          String                @map("user_id") @db.Uuid
+  assignmentType  PaperAssignmentType   @map("assignment_type")
+  status          PaperAssignmentStatus @default(ASSIGNED)
+  assignedBy      String                @map("assigned_by") @db.Uuid
+  startedAt       DateTime?             @map("started_at") @db.Timestamptz(6)
+  completedAt     DateTime?             @map("completed_at") @db.Timestamptz(6)
+  progressPercent Decimal               @default(0) @map("progress_percent") @db.Decimal(5, 2)
+  createdAt       DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime              @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  project   Project                   @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  paper     Paper                     @relation(fields: [paperId], references: [id], onDelete: Restrict)
+  user      User                      @relation("PaperAssignmentUser", fields: [userId], references: [id], onDelete: Restrict)
+  assigner  User                      @relation("PaperAssignmentAssignedBy", fields: [assignedBy], references: [id], onDelete: Restrict)
+  conflicts PaperAssignmentConflict[]
+
+  @@index([projectId, paperId])
+  @@index([userId, status])
+  // PostgreSQL partial unique index is required for one active PRIMARY_READER;
+  // Prisma schema DSL cannot represent this predicate. Add it in a SQL migration.
+  @@map("paper_assignments")
+}
+
+model PaperAssignmentConflict {
+  id                   String                  @id @default(uuid()) @db.Uuid
+  projectId            String                  @map("project_id") @db.Uuid
+  paperId              String                  @map("paper_id") @db.Uuid
+  requestedBy          String                  @map("requested_by") @db.Uuid
+  existingAssignmentId String                  @map("existing_assignment_id") @db.Uuid
+  resolution           PaperConflictResolution @default(BLOCKED)
+  resolvedBy           String?                 @map("resolved_by") @db.Uuid
+  resolvedAt           DateTime?               @map("resolved_at") @db.Timestamptz(6)
+  createdAt            DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  project            Project         @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  paper              Paper           @relation(fields: [paperId], references: [id], onDelete: Restrict)
+  requester          User            @relation("PaperConflictRequester", fields: [requestedBy], references: [id], onDelete: Restrict)
+  existingAssignment PaperAssignment @relation(fields: [existingAssignmentId], references: [id], onDelete: Restrict)
+  resolver           User?           @relation("PaperConflictResolver", fields: [resolvedBy], references: [id], onDelete: SetNull)
+
+  @@index([projectId, paperId, createdAt])
+  @@map("paper_assignment_conflicts")
+}
+
+model QuestionSet {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  name           String   @db.VarChar(150)
+  description    String?
+  version        Int      @default(1)
+  status         String   @default("ACTIVE") @db.VarChar(30)
+  createdBy      String   @map("created_by") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  creator      User                 @relation("QuestionSetCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
+  questions    ResearchQuestion[]
+  projects     ProjectQuestionSet[]
+
+  @@index([organizationId, status])
+  @@map("question_sets")
+}
+
+model ProjectQuestionSet {
+  id            String   @id @default(uuid()) @db.Uuid
+  projectId     String   @map("project_id") @db.Uuid
+  questionSetId String   @map("question_set_id") @db.Uuid
+  assignedAt    DateTime @default(now()) @map("assigned_at") @db.Timestamptz(6)
+
+  project     Project     @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  questionSet QuestionSet @relation(fields: [questionSetId], references: [id], onDelete: Restrict)
+
+  @@unique([projectId, questionSetId])
+  @@map("project_question_sets")
+}
+
+model ResearchQuestion {
+  id              String             @id @default(uuid()) @db.Uuid
+  questionSetId   String             @map("question_set_id") @db.Uuid
+  questionCode    String             @map("question_code") @db.VarChar(50)
+  questionText    String             @map("question_text") @db.Text
+  description     String?
+  answerType      ResearchAnswerType @map("answer_type")
+  isRequired      Boolean            @default(false) @map("is_required")
+  displayOrder    Int                @default(0) @map("display_order")
+  excelColumn     String?            @map("excel_column") @db.VarChar(100)
+  validationRules Json?              @map("validation_rules") @db.JsonB
+  options         Json?              @db.JsonB
+  createdAt       DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  questionSet QuestionSet        @relation(fields: [questionSetId], references: [id], onDelete: Restrict)
+  responses   ResearchResponse[]
+
+  @@unique([questionSetId, questionCode])
+  @@index([questionSetId, displayOrder])
+  @@map("research_questions")
+}
+
+model ResearchResponse {
+  id            String    @id @default(uuid()) @db.Uuid
+  projectId     String    @map("project_id") @db.Uuid
+  paperId       String    @map("paper_id") @db.Uuid
+  questionId    String    @map("question_id") @db.Uuid
+  userId        String    @map("user_id") @db.Uuid
+  answerText    String?   @map("answer_text")
+  answerNumber  Decimal?  @map("answer_number") @db.Decimal(18, 4)
+  answerBoolean Boolean?  @map("answer_boolean")
+  answerDate    DateTime? @map("answer_date") @db.Date
+  answerJson    Json?     @map("answer_json") @db.JsonB
+  version       Int       @default(1)
+  status        String    @default("DRAFT") @db.VarChar(30)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  project  Project          @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  paper    Paper            @relation(fields: [paperId], references: [id], onDelete: Restrict)
+  question ResearchQuestion @relation(fields: [questionId], references: [id], onDelete: Restrict)
+  user     User             @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@unique([projectId, paperId, questionId, userId, version])
+  @@index([projectId, paperId, userId, status])
+  @@map("research_responses")
+}
+
+model ResearchSubmission {
+  id            String                   @id @default(uuid()) @db.Uuid
+  projectId     String                   @map("project_id") @db.Uuid
+  paperId       String                   @map("paper_id") @db.Uuid
+  submittedBy   String                   @map("submitted_by") @db.Uuid
+  status        ResearchSubmissionStatus @default(DRAFT)
+  version       Int                      @default(1)
+  submittedAt   DateTime?                @map("submitted_at") @db.Timestamptz(6)
+  reviewedBy    String?                  @map("reviewed_by") @db.Uuid
+  reviewedAt    DateTime?                @map("reviewed_at") @db.Timestamptz(6)
+  reviewComment String?                  @map("review_comment")
+  createdAt     DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  paper     Paper   @relation(fields: [paperId], references: [id], onDelete: Restrict)
+  submitter User    @relation("ResearchSubmittedBy", fields: [submittedBy], references: [id], onDelete: Restrict)
+  reviewer  User?   @relation("ResearchReviewedBy", fields: [reviewedBy], references: [id], onDelete: Restrict)
+
+  @@unique([projectId, paperId, submittedBy, version])
+  @@index([projectId, paperId, status])
+  @@map("research_submissions")
+}
+
+model Session {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  tokenHash String    @map("token_hash")
+  ipAddress String?   @map("ip_address") @db.Inet
+  userAgent String?   @map("user_agent")
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz(6)
+  revokedAt DateTime? @map("revoked_at") @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([userId, expiresAt])
+  @@map("sessions")
+}
+
+model PasswordResetToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  tokenHash String    @map("token_hash")
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz(6)
+  usedAt    DateTime? @map("used_at") @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([userId, expiresAt])
+  @@map("password_reset_tokens")
+}
+
+model Task {
+  id              String       @id @default(uuid()) @db.Uuid
+  organizationId  String       @map("organization_id") @db.Uuid
+  taskCode        String       @map("task_code") @db.VarChar(50)
+  title           String       @db.VarChar(255)
+  description     String?
+  projectId       String?      @map("project_id") @db.Uuid
+  teamId          String?      @map("team_id") @db.Uuid
+  createdBy       String       @map("created_by") @db.Uuid
+  priority        TaskPriority @default(MEDIUM)
+  status          TaskStatus   @default(TODO)
+  startDate       DateTime?    @map("start_date") @db.Timestamptz(6)
+  dueDate         DateTime?    @map("due_date") @db.Timestamptz(6)
+  completedAt     DateTime?    @map("completed_at") @db.Timestamptz(6)
+  progressPercent Decimal      @default(0) @map("progress_percent") @db.Decimal(5, 2)
+  parentTaskId    String?      @map("parent_task_id") @db.Uuid
+  createdAt       DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt       DateTime?    @map("deleted_at") @db.Timestamptz(6)
+
+  project      Project?         @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  team         Team?            @relation(fields: [teamId], references: [id], onDelete: Restrict)
+  creator      User             @relation("TaskCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
+  parentTask   Task?            @relation("TaskHierarchy", fields: [parentTaskId], references: [id], onDelete: Restrict)
+  childTasks   Task[]           @relation("TaskHierarchy")
+  assignees    TaskAssignee[]
+  dependencies TaskDependency[] @relation("TaskDependencies")
+  dependents   TaskDependency[] @relation("TaskDependents")
+
+  @@unique([organizationId, taskCode])
+  @@index([organizationId, status, dueDate])
+  @@index([projectId, status])
+  @@index([teamId, status])
+  @@map("tasks")
+}
+
+model TaskAssignee {
+  id         String   @id @default(uuid()) @db.Uuid
+  taskId     String   @map("task_id") @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  assignedBy String   @map("assigned_by") @db.Uuid
+  assignedAt DateTime @default(now()) @map("assigned_at") @db.Timestamptz(6)
+
+  task     Task @relation(fields: [taskId], references: [id], onDelete: Restrict)
+  user     User @relation("TaskAssignedUser", fields: [userId], references: [id], onDelete: Restrict)
+  assigner User @relation("TaskAssigneeAssignedBy", fields: [assignedBy], references: [id], onDelete: Restrict)
+
+  @@unique([taskId, userId])
+  @@index([userId, assignedAt])
+  @@map("task_assignees")
+}
+
+model TaskDependency {
+  id              String   @id @default(uuid()) @db.Uuid
+  taskId          String   @map("task_id") @db.Uuid
+  dependsOnTaskId String   @map("depends_on_task_id") @db.Uuid
+  dependencyType  String   @default("FINISH_TO_START") @map("dependency_type") @db.VarChar(30)
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  task          Task @relation("TaskDependencies", fields: [taskId], references: [id], onDelete: Restrict)
+  dependsOnTask Task @relation("TaskDependents", fields: [dependsOnTaskId], references: [id], onDelete: Restrict)
+
+  @@unique([taskId, dependsOnTaskId])
+  @@map("task_dependencies")
+}
+
+model Todo {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  title          String       @db.VarChar(255)
+  description    String?
+  userId         String?      @map("user_id") @db.Uuid
+  teamId         String?      @map("team_id") @db.Uuid
+  projectId      String?      @map("project_id") @db.Uuid
+  priority       TaskPriority @default(MEDIUM)
+  status         TodoStatus   @default(TODO)
+  dueDate        DateTime?    @map("due_date") @db.Date
+  completedAt    DateTime?    @map("completed_at") @db.Timestamptz(6)
+  createdBy      String       @map("created_by") @db.Uuid
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user    User?    @relation("TodoAssignee", fields: [userId], references: [id], onDelete: Restrict)
+  team    Team?    @relation(fields: [teamId], references: [id], onDelete: Restrict)
+  project Project? @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  creator User     @relation("TodoCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, status, dueDate])
+  @@index([userId, status])
+  @@index([teamId, status])
+  @@map("todos")
+}
+
+model Notice {
+  id                      String         @id @default(uuid()) @db.Uuid
+  organizationId          String         @map("organization_id") @db.Uuid
+  title                   String         @db.VarChar(255)
+  content                 String         @db.Text
+  priority                NoticePriority @default(NORMAL)
+  scope                   NoticeScope
+  createdBy               String         @map("created_by") @db.Uuid
+  publishAt               DateTime       @default(now()) @map("publish_at") @db.Timestamptz(6)
+  expiresAt               DateTime?      @map("expires_at") @db.Timestamptz(6)
+  requiresAcknowledgement Boolean        @default(false) @map("requires_acknowledgement")
+  status                  NoticeStatus   @default(PUBLISHED)
+  createdAt               DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt               DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization     Organization            @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  author           User                    @relation("NoticeAuthor", fields: [createdBy], references: [id], onDelete: Restrict)
+  teams            NoticeTeam[]
+  users            NoticeUser[]
+  acknowledgements NoticeAcknowledgement[]
+
+  @@index([organizationId, status, publishAt, expiresAt])
+  @@map("notices")
+}
+
+model NoticeTeam {
+  id       String @id @default(uuid()) @db.Uuid
+  noticeId String @map("notice_id") @db.Uuid
+  teamId   String @map("team_id") @db.Uuid
+
+  notice Notice @relation(fields: [noticeId], references: [id], onDelete: Restrict)
+  team   Team   @relation(fields: [teamId], references: [id], onDelete: Restrict)
+
+  @@unique([noticeId, teamId])
+  @@map("notice_teams")
+}
+
+model NoticeUser {
+  id       String @id @default(uuid()) @db.Uuid
+  noticeId String @map("notice_id") @db.Uuid
+  userId   String @map("user_id") @db.Uuid
+
+  notice Notice @relation(fields: [noticeId], references: [id], onDelete: Restrict)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@unique([noticeId, userId])
+  @@index([userId])
+  @@map("notice_users")
+}
+
+model NoticeAcknowledgement {
+  id             String   @id @default(uuid()) @db.Uuid
+  noticeId       String   @map("notice_id") @db.Uuid
+  userId         String   @map("user_id") @db.Uuid
+  acknowledgedAt DateTime @default(now()) @map("acknowledged_at") @db.Timestamptz(6)
+
+  notice Notice @relation(fields: [noticeId], references: [id], onDelete: Restrict)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@unique([noticeId, userId])
+  @@index([userId, acknowledgedAt])
+  @@map("notice_acknowledgements")
+}
+
+model Asset {
+  id             String         @id @default(uuid()) @db.Uuid
+  organizationId String         @map("organization_id") @db.Uuid
+  assetCode      String         @map("asset_code") @db.VarChar(50)
+  name           String         @db.VarChar(255)
+  category       String         @db.VarChar(100)
+  description    String?
+  serialNumber   String?        @map("serial_number") @db.VarChar(255)
+  imageUrl       String?        @map("image_url")
+  purchaseDate   DateTime?      @map("purchase_date") @db.Date
+  purchasePrice  Decimal?       @map("purchase_price") @db.Decimal(12, 2)
+  condition      AssetCondition @default(NEW)
+  status         AssetStatus    @default(AVAILABLE)
+  location       String?        @db.VarChar(255)
+  createdBy      String         @map("created_by") @db.Uuid
+  createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime?      @map("deleted_at") @db.Timestamptz(6)
+
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  creator      User              @relation("AssetCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
+  assignments  AssetAssignment[]
+
+  @@unique([organizationId, assetCode])
+  @@index([organizationId, status])
+  @@index([organizationId, category])
+  @@map("assets")
+}
+
+model AssetAssignment {
+  id                    String          @id @default(uuid()) @db.Uuid
+  assetId               String          @map("asset_id") @db.Uuid
+  userId                String?         @map("user_id") @db.Uuid
+  teamId                String?         @map("team_id") @db.Uuid
+  assignedBy            String          @map("assigned_by") @db.Uuid
+  assignedAt            DateTime        @default(now()) @map("assigned_at") @db.Timestamptz(6)
+  returnedAt            DateTime?       @map("returned_at") @db.Timestamptz(6)
+  conditionOnAssignment AssetCondition  @map("condition_on_assignment")
+  conditionOnReturn     AssetCondition? @map("condition_on_return")
+  notes                 String?
+
+  asset    Asset @relation(fields: [assetId], references: [id], onDelete: Restrict)
+  user     User? @relation("AssetAssignedUser", fields: [userId], references: [id], onDelete: Restrict)
+  team     Team? @relation("AssetAssignedTeam", fields: [teamId], references: [id], onDelete: Restrict)
+  assigner User  @relation("AssetAssignmentAssignedBy", fields: [assignedBy], references: [id], onDelete: Restrict)
+
+  @@index([assetId, returnedAt])
+  @@index([userId, returnedAt])
+  @@index([teamId, returnedAt])
+  @@map("asset_assignments")
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+}
+
+model AuditLog {
+  id             String      @id @default(uuid()) @db.Uuid
+  organizationId String      @map("organization_id") @db.Uuid
+  actorId        String?     @map("actor_id") @db.Uuid
+  action         AuditAction
+  entity         String      @db.VarChar(100)
+  entityId       String      @map("entity_id") @db.VarChar(100)
+  oldValue       Json?       @map("old_value")
+  newValue       Json?       @map("new_value")
+  ipAddress      String?     @map("ip_address") @db.VarChar(50)
+  userAgent      String?     @map("user_agent")
+  createdAt      DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  actor        User?        @relation("AuditLogActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, entity, entityId])
+  @@index([organizationId, actorId, createdAt])
+  @@map("audit_logs")
+}
+
+model Notification {
+  id             String    @id @default(uuid()) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  userId         String    @map("user_id") @db.Uuid
+  title          String    @db.VarChar(255)
+  content        String
+  type           String    @db.VarChar(50)
+  referenceId    String?   @map("reference_id") @db.VarChar(100)
+  referenceType  String?   @map("reference_type") @db.VarChar(100)
+  isRead         Boolean   @default(false) @map("is_read")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead, createdAt])
+  @@map("notifications")
+}
+
+enum JobStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+model ExportJob {
+  id             String    @id @default(uuid()) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  requestedBy    String    @map("requested_by") @db.Uuid
+  jobType        String    @map("job_type") @db.VarChar(100)
+  status         JobStatus @default(PENDING)
+  parameters     Json?
+  fileUrl        String?   @map("file_url")
+  errorMessage   String?   @map("error_message")
+  startedAt      DateTime? @map("started_at") @db.Timestamptz(6)
+  completedAt    DateTime? @map("completed_at") @db.Timestamptz(6)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  requester    User         @relation("ExportJobRequester", fields: [requestedBy], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, status, createdAt])
+  @@map("export_jobs")
+}

@@ -1,0 +1,14 @@
+{
+  "name": "intellinova",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@10.12.4",
+  "scripts": {
+    "dev": "corepack pnpm --parallel --filter @intellinova/web --filter @intellinova/api dev",
+    "dev:web": "corepack pnpm --filter @intellinova/web dev",
+    "dev:api": "corepack pnpm --filter @intellinova/api start:dev",
+    "build": "corepack pnpm --recursive --if-present build",
+    "lint": "corepack pnpm --recursive --if-present lint",
+    "typecheck": "corepack pnpm --filter @intellinova/web exec tsc --noEmit && corepack pnpm --filter @intellinova/api exec tsc --noEmit"
+  }
+}
