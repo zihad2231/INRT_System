@@ -126,6 +126,7 @@ interface ApiEnvelope<T> {
 }
 
 async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
+  const token = typeof window !== "undefined" ? localStorage.getItem("session_token") : null;
   let response: Response;
   try {
     response = await fetch(`${API_BASE_URL}${path}`, {
@@ -133,6 +134,7 @@ async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
       credentials: "include",
       headers: {
         ...(init?.body instanceof FormData ? {} : { "Content-Type": "application/json" }),
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...init?.headers,
       },
       cache: "no-store",
@@ -147,6 +149,9 @@ async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
       throw new ApiError("Database এখনো প্রস্তুত নয়। PostgreSQL DATABASE_URL configure করুন।");
     }
     if (response.status === 401) {
+      if (typeof window !== "undefined" && path === "/auth/me") {
+        localStorage.removeItem("session_token");
+      }
       throw new ApiError(path === "/auth/me" ? "আপনার session শেষ হয়েছে। আবার sign in করুন।" : "ইমেইল অথবা পাসওয়ার্ড সঠিক নয়।");
     }
     const apiBody = body as any;
@@ -167,13 +172,25 @@ async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const authApi = {
   me: () => apiRequest<{ user: SessionUser }>("/auth/me"),
-  login: (identifier: string, password: string) =>
-    apiRequest<{ user: SessionUser; expiresAt: string }>("/auth/login", {
+  login: async (identifier: string, password: string) => {
+    const data = await apiRequest<{ token?: string; user: SessionUser; expiresAt: string }>("/auth/login", {
       method: "POST",
       body: JSON.stringify({ identifier, password }),
-    }),
-  logout: () =>
-    apiRequest<{ loggedOut: boolean }>("/auth/logout", { method: "POST" }),
+    });
+    if (data?.token && typeof window !== "undefined") {
+      localStorage.setItem("session_token", data.token);
+    }
+    return data;
+  },
+  logout: async () => {
+    try {
+      return await apiRequest<{ loggedOut: boolean }>("/auth/logout", { method: "POST" });
+    } finally {
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("session_token");
+      }
+    }
+  },
 };
 
 export function apiGet<T>(path: string): Promise<T> {

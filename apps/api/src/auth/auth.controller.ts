@@ -31,7 +31,7 @@ export class AuthController {
     const result = await this.authService.login(loginDto.identifier, loginDto.password);
     response.cookie(SESSION_COOKIE_NAME, result.token, this.cookieOptions());
 
-    return { success: true, data: { user: result.user, expiresAt: result.expiresAt } };
+    return { success: true, data: { token: result.token, user: result.user, expiresAt: result.expiresAt } };
   }
 
   @Post('logout')
