@@ -53,10 +53,11 @@ export class AuthController {
   }
 
   private cookieOptions(includeLifetime = true): CookieOptions {
+    const isProduction = process.env.NODE_ENV === 'production';
     return {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      secure: isProduction,
+      sameSite: isProduction ? 'none' : 'lax',
       path: '/',
       ...(includeLifetime ? { maxAge: SESSION_TTL_MS } : {}),
     };
