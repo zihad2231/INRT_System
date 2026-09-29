@@ -5,8 +5,18 @@ import { AppModule } from './app.module.js';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  const rawOrigins = process.env.WEB_ORIGIN ?? 'http://localhost:3000';
+  const allowedOrigins = rawOrigins.split(',').map((o) => o.trim().replace(/\/$/, ''));
+
   app.enableCors({
-    origin: process.env.WEB_ORIGIN ?? 'http://localhost:3000',
+    origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+      if (!origin) return callback(null, true);
+      const cleanOrigin = origin.replace(/\/$/, '');
+      if (allowedOrigins.includes(cleanOrigin) || allowedOrigins.includes('*')) {
+        return callback(null, true);
+      }
+      return callback(null, false);
+    },
     credentials: true,
   });
   app.use(cookieParser());
