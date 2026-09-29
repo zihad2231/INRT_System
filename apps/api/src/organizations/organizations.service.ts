@@ -7,6 +7,19 @@ import type { UpdateOrganizationDto } from './dto/update-organization.dto.js';
 export class OrganizationsService {
   constructor(private readonly prisma: PrismaService) {}
 
+  async getPublicBranding() {
+    const org = await this.prisma.organization.findFirst({
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        logoUrl: true,
+        description: true,
+      },
+    });
+    return org ?? { name: 'INRT - IntelliNova Research Team', logoUrl: null, description: null };
+  }
+
   async getCurrent(actor: AuthenticatedUser) {
     const org = await this.prisma.organization.findUnique({
       where: { id: actor.organizationId },

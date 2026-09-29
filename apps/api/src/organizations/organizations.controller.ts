@@ -12,17 +12,24 @@ import { OrganizationsService } from './organizations.service.js';
 import { UpdateOrganizationDto } from './dto/update-organization.dto.js';
 
 @Controller('organizations')
-@UseGuards(SessionAuthGuard)
 export class OrganizationsController {
   constructor(private readonly organizationsService: OrganizationsService) {}
 
+  @Get('public')
+  async getPublicBranding() {
+    const data = await this.organizationsService.getPublicBranding();
+    return { success: true, data };
+  }
+
   @Get('current')
+  @UseGuards(SessionAuthGuard)
   async getCurrent(@Req() request: AuthenticatedRequest) {
     const data = await this.organizationsService.getCurrent(request.user);
     return { success: true, data };
   }
 
   @Patch('current')
+  @UseGuards(SessionAuthGuard)
   async updateCurrent(
     @Req() request: AuthenticatedRequest,
     @Body() dto: UpdateOrganizationDto,
