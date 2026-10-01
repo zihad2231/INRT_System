@@ -8,11 +8,17 @@ const manager: AuthenticatedUser = {
   organizationId: 'org-a',
   memberCode: 'INT-000001',
   email: 'manager@example.com',
+  firstName: 'Task',
+  lastName: 'Manager',
   fullName: 'Task Manager',
   profileImageUrl: null,
+  bio: null,
+  phone: null,
   organization: { id: 'org-a', name: 'Organization A', slug: 'org-a', logoUrl: null },
   roles: ['ADMIN'],
   permissions: ['TASK_CREATE', 'TASK_MANAGE', 'TASK_VIEW'],
+  skills: [],
+  researchAreas: [],
 };
 
 const makePrisma = () => ({

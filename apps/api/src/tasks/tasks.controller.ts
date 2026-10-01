@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   ParseUUIDPipe,
@@ -53,6 +54,25 @@ export class TasksController {
     @Body() dto: UpdateTaskStatusDto,
   ) {
     const task = await this.tasksService.updateTaskStatus(request.user, id, dto);
+    return { success: true, data: task };
+  }
+
+  @Patch('tasks/:id')
+  async updateTask(
+    @Req() request: AuthenticatedRequest,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: any,
+  ) {
+    const task = await this.tasksService.updateTask(request.user, id, dto);
+    return { success: true, data: task };
+  }
+
+  @Delete('tasks/:id')
+  async deleteTask(
+    @Req() request: AuthenticatedRequest,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    const task = await this.tasksService.deleteTask(request.user, id);
     return { success: true, data: task };
   }
 

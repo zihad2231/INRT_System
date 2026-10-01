@@ -1,4 +1,4 @@
-import { IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import { IsNumber, IsOptional, IsString, Max, MaxLength, Min, MinLength } from 'class-validator';
 
 export class UpdateOrganizationDto {
   @IsOptional()
@@ -30,4 +30,23 @@ export class UpdateOrganizationDto {
   @IsString()
   @MaxLength(30)
   dateFormat?: string;
+
+  @IsOptional()
+  @IsString()
+  bgImageUrl?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(30)
+  accentColor?: string;
+
+  @IsOptional()
+  @IsString()
+  loginBgImageUrl?: string;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(1)
+  loginBgOpacity?: number;
 }

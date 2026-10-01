@@ -40,7 +40,13 @@ export class AuthController {
     @Req() request: Request,
     @Res({ passthrough: true }) response: Response,
   ) {
-    await this.authService.logout(request.cookies?.[SESSION_COOKIE_NAME]);
+    const authHeader = request.headers['authorization'] || request.headers['Authorization'];
+    const bearerToken = typeof authHeader === 'string' && authHeader.startsWith('Bearer ')
+      ? authHeader.substring(7)
+      : undefined;
+    const token = bearerToken || request.cookies?.[SESSION_COOKIE_NAME];
+
+    await this.authService.logout(token);
     response.clearCookie(SESSION_COOKIE_NAME, this.cookieOptions(false));
 
     return { success: true, data: { loggedOut: true } };

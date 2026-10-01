@@ -8,11 +8,17 @@ const actor: AuthenticatedUser = {
   organizationId: 'org-a',
   memberCode: 'INT-000001',
   email: 'reader@example.com',
+  firstName: 'Research',
+  lastName: 'Reader',
   fullName: 'Research Reader',
   profileImageUrl: null,
+  bio: null,
+  phone: null,
   organization: { id: 'org-a', name: 'Organization A', slug: 'org-a', logoUrl: null },
   roles: ['MEMBER'],
   permissions: ['PAPER_ASSIGN', 'PAPER_VIEW', 'PROJECT_MANAGE'],
+  skills: [],
+  researchAreas: [],
 };
 
 const makePrisma = () => ({

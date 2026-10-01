@@ -8,11 +8,17 @@ const admin: AuthenticatedUser = {
   organizationId: 'org-a',
   memberCode: 'INT-000001',
   email: 'admin@example.com',
+  firstName: 'Admin',
+  lastName: 'User',
   fullName: 'Admin User',
   profileImageUrl: null,
+  bio: null,
+  phone: null,
   organization: { id: 'org-a', name: 'Organization A', slug: 'org-a', logoUrl: null },
   roles: ['ADMIN'],
   permissions: ['PROJECT_MANAGE'],
+  skills: [],
+  researchAreas: [],
 };
 
 const makePrisma = () => ({

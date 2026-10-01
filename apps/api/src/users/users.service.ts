@@ -3,6 +3,7 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  NotFoundException,
 } from '@nestjs/common';
 import { Prisma, UserStatus } from '@prisma/client';
 import { hash, compare } from 'bcryptjs';
@@ -56,10 +57,12 @@ export class UsersService {
   }
 
   async create(actor: AuthenticatedUser, dto: CreateUserDto) {
-    if (!actor.roles.includes('SUPER_ADMIN')) {
+    const isSuperAdmin = actor.roles.includes('SUPER_ADMIN');
+    const isAdmin = actor.roles.includes('ADMIN');
+    if (!isSuperAdmin && !isAdmin) {
       throw new ForbiddenException({
-        code: 'SUPER_ADMIN_REQUIRED',
-        message: 'Only Super Admin can create users and manage roles.',
+        code: 'USER_CREATE_NOT_ALLOWED',
+        message: 'Only Admin or Super Admin can create users.',
       });
     }
 
@@ -67,17 +70,17 @@ export class UsersService {
     let roles: Array<{ id: string; code: string; isSystemRole: boolean }> = [];
 
     if (roleCodes.length > 0) {
-      if (!actor.permissions.includes('ROLE_ASSIGN')) {
+      if (!isSuperAdmin && !actor.permissions.includes('ROLE_ASSIGN')) {
         throw new ForbiddenException({
           code: 'ROLE_ASSIGNMENT_NOT_ALLOWED',
           message: 'You are not allowed to assign roles.',
         });
       }
 
-      roles = await this.prisma.role.findMany({
+      roles = (await this.prisma.role.findMany({
         where: { organizationId: actor.organizationId, code: { in: roleCodes } },
         select: { id: true, code: true, isSystemRole: true },
-      });
+      })) ?? [];
       if (roles.length !== roleCodes.length) {
         throw new BadRequestException({
           code: 'UNKNOWN_ROLE',
@@ -85,12 +88,12 @@ export class UsersService {
         });
       }
       if (
-        roles.some((role) => role.code === 'SUPER_ADMIN' || role.isSystemRole) &&
-        !actor.roles.includes('SUPER_ADMIN')
+        roles.some((role) => role.code === 'SUPER_ADMIN' || role.code === 'ADMIN' || role.isSystemRole) &&
+        !isSuperAdmin
       ) {
         throw new ForbiddenException({
           code: 'SYSTEM_ROLE_ASSIGNMENT_NOT_ALLOWED',
-          message: 'Only a Super Admin can assign a system role.',
+          message: 'Only a Super Admin can assign an Admin or system role.',
         });
       }
     }
@@ -117,7 +120,7 @@ export class UsersService {
             .filter(Boolean)
             .join(' '),
           profileImageUrl: dto.profileImageUrl ?? null,
-          status: UserStatus.ACTIVE,
+          status: dto.status ?? UserStatus.INVITED,
           userRoles: {
             create: roles.map((role) => ({
               role: { connect: { id: role.id } },
@@ -471,5 +474,144 @@ export class UsersService {
         status: true,
       },
     });
+  }
+
+  async listAdmins(actor: AuthenticatedUser) {
+    if (!actor.roles.includes('SUPER_ADMIN')) {
+      throw new ForbiddenException({
+        code: 'SUPER_ADMIN_REQUIRED',
+        message: 'Only Super Admin can view admin management.',
+      });
+    }
+
+    const adminRoles = await this.prisma.userRole.findMany({
+      where: {
+        role: { organizationId: actor.organizationId, code: { in: ['SUPER_ADMIN', 'ADMIN'] } },
+        user: { deletedAt: null },
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            memberCode: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+            fullName: true,
+            profileImageUrl: true,
+            status: true,
+            createdAt: true,
+            updatedAt: true,
+            teamMemberships: {
+              where: { isActive: true },
+              include: { team: { select: { id: true, name: true, teamCode: true } } },
+            },
+          },
+        },
+        role: { select: { id: true, code: true, name: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const userMap = new Map<string, any>();
+    for (const item of adminRoles) {
+      const existing = userMap.get(item.user.id);
+      if (existing) {
+        if (!existing.roles.includes(item.role.code)) {
+          existing.roles.push(item.role.code);
+        }
+      } else {
+        userMap.set(item.user.id, {
+          ...item.user,
+          roles: [item.role.code],
+          teams: item.user.teamMemberships.map((tm) => tm.team),
+        });
+      }
+    }
+
+    return Array.from(userMap.values());
+  }
+
+  async promoteToAdmin(actor: AuthenticatedUser, userId: string, roleCode: 'ADMIN' | 'SUPER_ADMIN' = 'ADMIN') {
+    if (!actor.roles.includes('SUPER_ADMIN')) {
+      throw new ForbiddenException({
+        code: 'SUPER_ADMIN_REQUIRED',
+        message: 'Only Super Admin can assign admin roles.',
+      });
+    }
+
+    const target = await this.prisma.user.findFirst({
+      where: { id: userId, organizationId: actor.organizationId, deletedAt: null },
+    });
+    if (!target) {
+      throw new NotFoundException('User was not found.');
+    }
+
+    const role = await this.prisma.role.findFirst({
+      where: { organizationId: actor.organizationId, code: roleCode },
+    });
+    if (!role) {
+      throw new BadRequestException(`Role ${roleCode} not found in this organization.`);
+    }
+
+    const existingUserRole = await this.prisma.userRole.findUnique({
+      where: { userId_roleId: { userId, roleId: role.id } },
+    });
+    if (!existingUserRole) {
+      await this.prisma.userRole.create({
+        data: {
+          userId,
+          roleId: role.id,
+          assignedBy: actor.id,
+        },
+      });
+    }
+
+    return { success: true, message: `User promoted to ${roleCode}` };
+  }
+
+  async demoteAdmin(actor: AuthenticatedUser, userId: string) {
+    if (!actor.roles.includes('SUPER_ADMIN')) {
+      throw new ForbiddenException({
+        code: 'SUPER_ADMIN_REQUIRED',
+        message: 'Only Super Admin can revoke admin roles.',
+      });
+    }
+
+    const target = await this.prisma.user.findFirst({
+      where: { id: userId, organizationId: actor.organizationId, deletedAt: null },
+      include: { userRoles: { include: { role: true } } },
+    });
+    if (!target) {
+      throw new NotFoundException('User was not found.');
+    }
+
+    const isSuperAdminTarget = target.userRoles.some((ur) => ur.role.code === 'SUPER_ADMIN');
+    if (isSuperAdminTarget) {
+      const superAdminCount = await this.prisma.userRole.count({
+        where: {
+          role: { organizationId: actor.organizationId, code: 'SUPER_ADMIN' },
+          user: { status: UserStatus.ACTIVE, deletedAt: null },
+        },
+      });
+      if (superAdminCount <= 1) {
+        throw new BadRequestException({
+          code: 'LAST_SUPER_ADMIN_PROTECTED',
+          message: 'Cannot demote the last active Super Admin.',
+        });
+      }
+    }
+
+    const adminRoles = target.userRoles.filter((ur) => ['SUPER_ADMIN', 'ADMIN'].includes(ur.role.code));
+    if (adminRoles.length > 0) {
+      await this.prisma.userRole.deleteMany({
+        where: {
+          userId,
+          roleId: { in: adminRoles.map((ur) => ur.roleId) },
+        },
+      });
+    }
+
+    return { success: true, message: 'Admin role revoked successfully.' };
   }
 }

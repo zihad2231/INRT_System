@@ -14,10 +14,14 @@ export class OrganizationsService {
         name: true,
         slug: true,
         logoUrl: true,
+        bgImageUrl: true,
+        accentColor: true,
+        loginBgImageUrl: true,
+        loginBgOpacity: true,
         description: true,
       },
     });
-    return org ?? { name: 'INRT - IntelliNova Research Team', logoUrl: null, description: null };
+    return org ?? { name: 'INRT - IntelliNova Research Team', logoUrl: null, bgImageUrl: null, accentColor: '#176b55', loginBgImageUrl: null, loginBgOpacity: 0.8, description: null };
   }
 
   async getCurrent(actor: AuthenticatedUser) {
@@ -28,6 +32,10 @@ export class OrganizationsService {
         name: true,
         slug: true,
         logoUrl: true,
+        bgImageUrl: true,
+        accentColor: true,
+        loginBgImageUrl: true,
+        loginBgOpacity: true,
         description: true,
         email: true,
         phone: true,
@@ -68,7 +76,7 @@ export class OrganizationsService {
       });
     }
 
-    const updated = await this.prisma.organization.update({
+    const updated = await (this.prisma.organization as any).update({
       where: { id: org.id },
       data: {
         ...(dto.name !== undefined ? { name: dto.name.trim() } : {}),
@@ -77,12 +85,20 @@ export class OrganizationsService {
         ...(dto.description !== undefined ? { description: dto.description ? dto.description.trim() : null } : {}),
         ...(dto.timezone !== undefined ? { timezone: dto.timezone.trim() } : {}),
         ...(dto.dateFormat !== undefined ? { dateFormat: dto.dateFormat.trim() } : {}),
+        ...(dto.bgImageUrl !== undefined ? { bgImageUrl: dto.bgImageUrl ? dto.bgImageUrl.trim() : null } : {}),
+        ...(dto.accentColor !== undefined ? { accentColor: dto.accentColor ? dto.accentColor.trim() : '#176b55' } : {}),
+        ...(dto.loginBgImageUrl !== undefined ? { loginBgImageUrl: dto.loginBgImageUrl ? dto.loginBgImageUrl.trim() : null } : {}),
+        ...(dto.loginBgOpacity !== undefined ? { loginBgOpacity: dto.loginBgOpacity } : {}),
       },
       select: {
         id: true,
         name: true,
         slug: true,
         logoUrl: true,
+        bgImageUrl: true,
+        accentColor: true,
+        loginBgImageUrl: true,
+        loginBgOpacity: true,
         description: true,
         email: true,
         phone: true,

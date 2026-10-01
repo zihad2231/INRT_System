@@ -166,6 +166,80 @@ export class TasksService {
     });
   }
 
+  async updateTask(
+    actor: AuthenticatedUser,
+    taskId: string,
+    dto: {
+      title?: string;
+      description?: string;
+      priority?: TaskPriority;
+      status?: TaskStatus;
+      dueDate?: string;
+      projectId?: string;
+      teamId?: string;
+      assigneeIds?: string[];
+    },
+  ) {
+    const task = await this.findVisibleTask(actor, taskId);
+    const isManager =
+      actor.permissions.includes('TASK_MANAGE') ||
+      actor.roles.some((r) => ['SUPER_ADMIN', 'ADMIN'].includes(r));
+    if (!isManager && task.createdBy !== actor.id) {
+      throw new ForbiddenException({
+        code: 'TASK_MANAGE_NOT_ALLOWED',
+        message: 'Only an Admin or task creator can edit task details.',
+      });
+    }
+
+    const assigneeIds = dto.assigneeIds ? [...new Set(dto.assigneeIds)] : undefined;
+    if (dto.projectId || dto.teamId || assigneeIds) {
+      await this.validateTaskReferences(actor, dto.projectId, dto.teamId, assigneeIds ?? []);
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      if (assigneeIds !== undefined) {
+        await tx.taskAssignee.deleteMany({ where: { taskId } });
+        if (assigneeIds.length > 0) {
+          await tx.taskAssignee.createMany({
+            data: assigneeIds.map((userId) => ({ taskId, userId, assignedBy: actor.id })),
+          });
+        }
+      }
+
+      return tx.task.update({
+        where: { id: taskId },
+        data: {
+          ...(dto.title !== undefined ? { title: dto.title.trim() } : {}),
+          ...(dto.description !== undefined ? { description: dto.description?.trim() || null } : {}),
+          ...(dto.priority !== undefined ? { priority: dto.priority } : {}),
+          ...(dto.status !== undefined ? { status: dto.status } : {}),
+          ...(dto.dueDate !== undefined ? { dueDate: dto.dueDate ? new Date(dto.dueDate) : null } : {}),
+          ...(dto.projectId !== undefined ? { projectId: dto.projectId || null } : {}),
+          ...(dto.teamId !== undefined ? { teamId: dto.teamId || null } : {}),
+        },
+        include: taskInclude,
+      });
+    });
+  }
+
+  async deleteTask(actor: AuthenticatedUser, taskId: string) {
+    const task = await this.findVisibleTask(actor, taskId);
+    const isManager =
+      actor.permissions.includes('TASK_MANAGE') ||
+      actor.roles.some((r) => ['SUPER_ADMIN', 'ADMIN'].includes(r));
+    if (!isManager && task.createdBy !== actor.id) {
+      throw new ForbiddenException({
+        code: 'TASK_MANAGE_NOT_ALLOWED',
+        message: 'Only an Admin or task creator can delete tasks.',
+      });
+    }
+
+    return this.prisma.task.update({
+      where: { id: taskId },
+      data: { deletedAt: new Date() },
+    });
+  }
+
   async listTodos(actor: AuthenticatedUser, page = 1, limit = 20) {
     const where: Prisma.TodoWhereInput = {
       organizationId: actor.organizationId,

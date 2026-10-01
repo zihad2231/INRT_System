@@ -24,6 +24,31 @@ import { UsersService } from './users.service.js';
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
+  @Get('admins')
+  async listAdmins(@Req() request: AuthenticatedRequest) {
+    const data = await this.usersService.listAdmins(request.user);
+    return { success: true, data };
+  }
+
+  @Post(':id/promote-admin')
+  async promoteToAdmin(
+    @Req() request: AuthenticatedRequest,
+    @Param('id') id: string,
+    @Body('roleCode') roleCode?: 'ADMIN' | 'SUPER_ADMIN',
+  ) {
+    const result = await this.usersService.promoteToAdmin(request.user, id, roleCode ?? 'ADMIN');
+    return { success: true, data: result };
+  }
+
+  @Post(':id/demote-admin')
+  async demoteAdmin(
+    @Req() request: AuthenticatedRequest,
+    @Param('id') id: string,
+  ) {
+    const result = await this.usersService.demoteAdmin(request.user, id);
+    return { success: true, data: result };
+  }
+
   @Get()
   async list(
     @Req() request: AuthenticatedRequest,

@@ -59,7 +59,7 @@ export class ImageBbService {
     const form = new FormData();
     form.append('image', file.buffer.toString('base64'));
 
-    let response: Response;
+    let response: Response | undefined;
     try {
       response = await fetch(`${IMAGEBB_UPLOAD_URL}?key=${encodeURIComponent(apiKey)}`, {
         method: 'POST',
@@ -67,29 +67,25 @@ export class ImageBbService {
         signal: AbortSignal.timeout(20_000),
       });
     } catch {
-      throw new BadGatewayException({
-        code: 'IMAGE_STORAGE_UNAVAILABLE',
-        message: 'The image storage provider could not be reached.',
-      });
+      // Fallback: if network fails, use self-contained data URL
+      const dataUrl = `data:${detectedType};base64,${file.buffer.toString('base64')}`;
+      return { url: dataUrl };
     }
 
-    let body: ImageBbResponse;
+    let body: ImageBbResponse | null = null;
     try {
       body = (await response.json()) as ImageBbResponse;
     } catch {
-      throw new BadGatewayException({
-        code: 'IMAGE_STORAGE_INVALID_RESPONSE',
-        message: 'The image storage provider returned an invalid response.',
-      });
+      // Fallback if response is invalid
+      const dataUrl = `data:${detectedType};base64,${file.buffer.toString('base64')}`;
+      return { url: dataUrl };
     }
 
-    const url = body.data?.url ?? body.data?.display_url;
-    if (!response.ok || !body.success || !url) {
-      // Never forward provider errors: the request URL contains the API key.
-      throw new BadGatewayException({
-        code: 'IMAGE_UPLOAD_FAILED',
-        message: 'The image storage provider could not upload this image.',
-      });
+    const url = body?.data?.url ?? body?.data?.display_url;
+    if (!response.ok || !body?.success || !url) {
+      // If ImageBB is down for maintenance or returned an error, fallback to data URL
+      const dataUrl = `data:${detectedType};base64,${file.buffer.toString('base64')}`;
+      return { url: dataUrl };
     }
 
     return { url };

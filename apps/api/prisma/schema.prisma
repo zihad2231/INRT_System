@@ -185,7 +185,11 @@ model Organization {
   id          String             @id @default(uuid()) @db.Uuid
   name        String             @db.VarChar(150)
   slug        String             @unique @db.VarChar(100)
-  logoUrl     String?            @map("logo_url")
+  logoUrl         String?            @map("logo_url")
+  bgImageUrl      String?            @map("bg_image_url")
+  accentColor     String?            @default("#176b55") @map("accent_color")
+  loginBgImageUrl String?            @map("login_bg_image_url")
+  loginBgOpacity  Float?             @default(0.8) @map("login_bg_opacity")
   description String?
   email       String?            @db.VarChar(255)
   phone       String?            @db.VarChar(50)
@@ -205,6 +209,11 @@ model Organization {
   questionSets  QuestionSet[]
   notices       Notice[]
   assets        Asset[]
+  components    Component[]
+  componentRequests ComponentRequest[]
+  componentAllocations ComponentAllocation[]
+  funds         Fund[]
+  expenses      Expense[]
   auditLogs     AuditLog[]
   notifications Notification[]
   exportJobs    ExportJob[]
@@ -267,6 +276,14 @@ model User {
   assignedAssetRecords    AssetAssignment[]         @relation("AssetAssignedUser")
   assetAssignmentActions  AssetAssignment[]         @relation("AssetAssignmentAssignedBy")
   createdAssets           Asset[]                   @relation("AssetCreatedBy")
+  createdComponents       Component[]               @relation("ComponentCreatedBy")
+  requestedComponentRequests ComponentRequest[]     @relation("ComponentRequestedBy")
+  reviewedComponentRequests  ComponentRequest[]     @relation("ComponentReviewedBy")
+  allocatedComponentRecords  ComponentAllocation[]  @relation("ComponentAllocatedUser")
+  componentAllocationsMade   ComponentAllocation[]  @relation("ComponentAllocatedBy")
+  contributedFunds           Fund[]                 @relation("FundContributor")
+  createdFunds               Fund[]                 @relation("FundCreatedBy")
+  createdExpenses            Expense[]              @relation("ExpenseCreatedBy")
   auditActions            AuditLog[]                @relation("AuditLogActor")
   notifications           Notification[]
   requestedExportJobs     ExportJob[]               @relation("ExportJobRequester")
@@ -448,6 +465,7 @@ model Team {
   todos                Todo[]
   notices              NoticeTeam[]
   assignedAssetRecords AssetAssignment[]  @relation("AssetAssignedTeam")
+  componentAllocations ComponentAllocation[]
 
   @@unique([organizationId, teamCode])
   @@index([organizationId, status])
@@ -518,6 +536,9 @@ model Project {
   researchSubmissions ResearchSubmission[]
   tasks               Task[]
   todos               Todo[]
+  componentRequests   ComponentRequest[]
+  componentAllocations ComponentAllocation[]
+  expenses            Expense[]
 
   @@unique([organizationId, projectCode])
   @@index([organizationId, status])
@@ -1029,6 +1050,212 @@ model AssetAssignment {
   @@index([userId, returnedAt])
   @@index([teamId, returnedAt])
   @@map("asset_assignments")
+}
+
+enum ComponentStatus {
+  AVAILABLE
+  PARTIALLY_AVAILABLE
+  IN_USE
+  UNAVAILABLE
+
+  @@map("component_status")
+}
+
+enum ComponentRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+  RETURNED
+
+  @@map("component_request_status")
+}
+
+enum ComponentAllocationStatus {
+  ACTIVE
+  RETURNED
+  CANCELLED
+
+  @@map("component_allocation_status")
+}
+
+model Component {
+  id                String          @id @default(uuid()) @db.Uuid
+  organizationId    String          @map("organization_id") @db.Uuid
+  componentCode     String          @map("component_code") @db.VarChar(50)
+  name              String          @db.VarChar(255)
+  category          String          @db.VarChar(100)
+  description       String?         @db.Text
+  imageUrl          String?         @map("image_url")
+  totalQuantity     Int             @default(0) @map("total_quantity")
+  availableQuantity Int             @default(0) @map("available_quantity")
+  allocatedQuantity Int             @default(0) @map("allocated_quantity")
+  status            ComponentStatus @default(AVAILABLE)
+
+  brand             String?         @db.VarChar(100)
+  model             String?         @db.VarChar(100)
+  unitPrice         Decimal?        @map("unit_price") @db.Decimal(12, 2)
+  purchaseDate      DateTime?       @map("purchase_date") @db.Date
+  location          String?         @db.VarChar(255)
+  condition         String?         @db.VarChar(50)
+  notes             String?         @db.Text
+
+  createdBy         String          @map("created_by") @db.Uuid
+  createdAt         DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt         DateTime?       @map("deleted_at") @db.Timestamptz(6)
+
+  organization      Organization        @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  creator           User                @relation("ComponentCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
+  requests          ComponentRequest[]
+  allocations       ComponentAllocation[]
+
+  @@unique([organizationId, componentCode])
+  @@index([organizationId, status])
+  @@index([organizationId, category])
+  @@map("components")
+}
+
+model ComponentRequest {
+  id                String                 @id @default(uuid()) @db.Uuid
+  organizationId    String                 @map("organization_id") @db.Uuid
+  componentId       String                 @map("component_id") @db.Uuid
+  requestedBy       String                 @map("requested_by") @db.Uuid
+  projectId         String?                @map("project_id") @db.Uuid
+  requestedQuantity Int                    @map("requested_quantity")
+  purpose           String                 @db.Text
+  expectedStartDate DateTime?              @map("expected_start_date") @db.Date
+  expectedEndDate   DateTime?              @map("expected_end_date") @db.Date
+  additionalNote    String?                @map("additional_note") @db.Text
+  status            ComponentRequestStatus @default(PENDING)
+  reviewedBy        String?                @map("reviewed_by") @db.Uuid
+  reviewedAt        DateTime?              @map("reviewed_at") @db.Timestamptz(6)
+  reviewComment     String?                @map("review_comment") @db.Text
+  createdAt         DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime               @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization      Organization           @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  component         Component              @relation(fields: [componentId], references: [id], onDelete: Restrict)
+  requester         User                   @relation("ComponentRequestedBy", fields: [requestedBy], references: [id], onDelete: Restrict)
+  reviewer          User?                  @relation("ComponentReviewedBy", fields: [reviewedBy], references: [id], onDelete: SetNull)
+  project           Project?               @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  allocation        ComponentAllocation?
+
+  @@index([organizationId, status])
+  @@index([requestedBy, status])
+  @@index([componentId, status])
+  @@map("component_requests")
+}
+
+model ComponentAllocation {
+  id               String                    @id @default(uuid()) @db.Uuid
+  organizationId   String                    @map("organization_id") @db.Uuid
+  componentId      String                    @map("component_id") @db.Uuid
+  requestId        String?                   @unique @map("request_id") @db.Uuid
+  projectId        String?                   @map("project_id") @db.Uuid
+  userId           String?                   @map("user_id") @db.Uuid
+  teamId           String?                   @map("team_id") @db.Uuid
+  quantity         Int
+  startDate        DateTime                  @default(now()) @map("start_date") @db.Timestamptz(6)
+  expectedEndDate  DateTime?                 @map("expected_end_date") @db.Timestamptz(6)
+  actualReturnDate DateTime?                 @map("actual_return_date") @db.Timestamptz(6)
+  status           ComponentAllocationStatus @default(ACTIVE)
+  allocatedBy      String                    @map("allocated_by") @db.Uuid
+  notes            String?                   @db.Text
+  createdAt        DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime                  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization     Organization              @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  component        Component                 @relation(fields: [componentId], references: [id], onDelete: Restrict)
+  request          ComponentRequest?         @relation(fields: [requestId], references: [id], onDelete: SetNull)
+  project          Project?                  @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  user             User?                     @relation("ComponentAllocatedUser", fields: [userId], references: [id], onDelete: SetNull)
+  team             Team?                     @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  allocator        User                      @relation("ComponentAllocatedBy", fields: [allocatedBy], references: [id], onDelete: Restrict)
+
+  @@index([componentId, status])
+  @@index([userId, status])
+  @@index([projectId, status])
+  @@map("component_allocations")
+}
+
+enum TransactionStatus {
+  VALID
+  VOIDED
+
+  @@map("transaction_status")
+}
+
+enum ExpenseCategory {
+  COMPONENT_PURCHASE
+  SENSOR
+  HARDWARE
+  SOFTWARE
+  RESEARCH
+  TRANSPORTATION
+  PRINTING
+  EVENT
+  SUBSCRIPTION
+  MISCELLANEOUS
+
+  @@map("expense_category")
+}
+
+model Fund {
+  id                String            @id @default(uuid()) @db.Uuid
+  organizationId    String            @map("organization_id") @db.Uuid
+  fundCode          String            @map("fund_code") @db.VarChar(50)
+  contributorName   String            @map("contributor_name") @db.VarChar(255)
+  contributorUserId String?           @map("contributor_user_id") @db.Uuid
+  amount            Decimal           @db.Decimal(14, 2)
+  date              DateTime          @db.Date
+  purpose           String            @db.VarChar(255)
+  paymentMethod     String            @default("CASH") @map("payment_method") @db.VarChar(100)
+  receiptUrl        String?           @map("receipt_url")
+  notes             String?           @db.Text
+  status            TransactionStatus @default(VALID)
+
+  createdBy         String            @map("created_by") @db.Uuid
+  createdAt         DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt         DateTime?         @map("deleted_at") @db.Timestamptz(6)
+
+  organization      Organization      @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  contributorUser   User?             @relation("FundContributor", fields: [contributorUserId], references: [id], onDelete: SetNull)
+  creator           User              @relation("FundCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
+
+  @@unique([organizationId, fundCode])
+  @@index([organizationId, status, date])
+  @@map("funds")
+}
+
+model Expense {
+  id             String            @id @default(uuid()) @db.Uuid
+  organizationId String            @map("organization_id") @db.Uuid
+  expenseCode    String            @map("expense_code") @db.VarChar(50)
+  title          String            @db.VarChar(255)
+  category       ExpenseCategory   @default(MISCELLANEOUS)
+  amount         Decimal           @db.Decimal(14, 2)
+  date           DateTime          @db.Date
+  projectId      String?           @map("project_id") @db.Uuid
+  vendor         String?           @db.VarChar(255)
+  receiptUrl     String?           @map("receipt_url")
+  description    String?           @db.Text
+  status         TransactionStatus @default(VALID)
+
+  createdBy      String            @map("created_by") @db.Uuid
+  createdAt      DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime?         @map("deleted_at") @db.Timestamptz(6)
+
+  organization   Organization      @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  project        Project?          @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  creator        User              @relation("ExpenseCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
+
+  @@unique([organizationId, expenseCode])
+  @@index([organizationId, status, date])
+  @@index([projectId, status])
+  @@map("expenses")
 }
 
 enum AuditAction {

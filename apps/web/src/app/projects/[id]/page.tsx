@@ -203,23 +203,30 @@ export default function ProjectDetailPage() {
           {/* Metric Cards */}
           <div className="mt-5 grid gap-4 sm:grid-cols-3">
             {[
-              { title: "Research papers", count: project._count.papers, href: `/projects/${project.id}/papers`, icon: "▤" },
-              { title: "Project members", count: project._count.members, href: "#members", icon: "♙" },
-              { title: "Tasks & assignments", count: project._count.assignments, href: "/tasks", icon: "✓" },
+              { title: "Research papers", count: project._count.papers, href: `/projects/${project.id}/papers`, icon: "▤", action: "View Papers" },
+              { title: "Project members", count: project._count.members, href: "#members", icon: "♙", action: "View Members" },
+              { title: "Tasks & assignments", count: project._count.assignments, href: "/tasks", icon: "✓", action: "View Tasks" },
             ].map((item) => (
               <Link
                 href={item.href}
                 key={item.title}
-                className="rounded-2xl border border-[#e9eeeb] bg-white p-5 transition hover:-translate-y-0.5 hover:shadow-md"
+                className="group flex flex-col justify-between rounded-2xl border border-[#e2e9e5] bg-white p-5 transition hover:-translate-y-0.5 hover:border-[#176b55] hover:shadow-md"
               >
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-medium text-[#718079]">{item.title}</span>
-                  <span className="grid size-9 place-items-center rounded-xl bg-[#eaf4f0] text-sm text-[#39886d]">
-                    {item.icon}
+                <div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-medium text-[#718079]">{item.title}</span>
+                    <span className="grid size-9 place-items-center rounded-xl bg-[#eaf4f0] text-sm text-[#176b55] group-hover:bg-[#176b55] group-hover:text-white transition">
+                      {item.icon}
+                    </span>
+                  </div>
+                  <p className="mt-3 text-3xl font-semibold tracking-tight text-[#17211f]">{item.count}</p>
+                </div>
+                <div className="mt-4 flex items-center justify-between border-t border-[#edf1ef] pt-3">
+                  <span className="inline-flex items-center gap-1.5 rounded-lg bg-[#f0faf6] px-3 py-1.5 text-xs font-semibold text-[#176b55] border border-[#c6e6d9] group-hover:bg-[#176b55] group-hover:text-white transition shadow-xs">
+                    <span>{item.action}</span>
+                    <span className="transition-transform group-hover:translate-x-0.5">→</span>
                   </span>
                 </div>
-                <p className="mt-4 text-3xl font-semibold tracking-tight">{item.count}</p>
-                <p className="mt-1 text-[10px] text-[#9aa39f]">View project data →</p>
               </Link>
             ))}
           </div>

@@ -12,7 +12,7 @@ export interface SessionUser {
   profileImageUrl: string | null;
   phone?: string | null;
   bio?: string | null;
-  organization: { id: string; name: string; slug: string; logoUrl: string | null };
+  organization: { id: string; name: string; slug: string; logoUrl: string | null; bgImageUrl?: string | null; accentColor?: string | null; loginBgImageUrl?: string | null; loginBgOpacity?: number | null };
   roles: string[];
   permissions: string[];
   skills: Array<{ id: string; name: string; category: string | null; proficiency: string | null; yearsExperience: number | null }>;
@@ -106,6 +106,147 @@ export interface DashboardData {
   projects: ProjectSummary[];
   tasks: TaskSummary[];
   notices: NoticeSummary[];
+}
+
+export interface ComponentItem {
+  id: string;
+  organizationId: string;
+  componentCode: string;
+  name: string;
+  category: string;
+  description: string | null;
+  imageUrl: string | null;
+  totalQuantity: number;
+  availableQuantity: number;
+  allocatedQuantity: number;
+  status: "AVAILABLE" | "PARTIALLY_AVAILABLE" | "IN_USE" | "UNAVAILABLE";
+  brand: string | null;
+  model: string | null;
+  unitPrice: number | string | null;
+  purchaseDate: string | null;
+  location: string | null;
+  condition: string | null;
+  notes: string | null;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+  creator?: { id: string; memberCode: string; fullName: string };
+  allocations?: ComponentAllocationItem[];
+  requests?: ComponentRequestItem[];
+  _count?: { requests: number; allocations: number };
+}
+
+export interface ComponentRequestItem {
+  id: string;
+  organizationId: string;
+  componentId: string;
+  requestedBy: string;
+  projectId: string | null;
+  requestedQuantity: number;
+  purpose: string;
+  expectedStartDate: string | null;
+  expectedEndDate: string | null;
+  additionalNote: string | null;
+  status: "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED" | "RETURNED";
+  reviewedBy: string | null;
+  reviewedAt: string | null;
+  reviewComment: string | null;
+  createdAt: string;
+  updatedAt: string;
+  component: { id: string; componentCode: string; name: string; category: string; imageUrl: string | null };
+  requester: { id: string; memberCode: string; fullName: string; email?: string };
+  reviewer?: { id: string; memberCode: string; fullName: string } | null;
+  project?: { id: string; projectCode: string; title: string } | null;
+  allocation?: { id: string; status: string; startDate: string; expectedEndDate: string | null; actualReturnDate: string | null } | null;
+}
+
+export interface ComponentAllocationItem {
+  id: string;
+  organizationId: string;
+  componentId: string;
+  requestId: string | null;
+  projectId: string | null;
+  userId: string | null;
+  teamId: string | null;
+  quantity: number;
+  startDate: string;
+  expectedEndDate: string | null;
+  actualReturnDate: string | null;
+  status: "ACTIVE" | "RETURNED" | "CANCELLED";
+  allocatedBy: string;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+  component: { id: string; componentCode: string; name: string; category: string; imageUrl: string | null };
+  user?: { id: string; memberCode: string; fullName: string; email?: string } | null;
+  team?: { id: string; teamCode: string; name: string } | null;
+  project?: { id: string; projectCode: string; title: string } | null;
+  allocator?: { id: string; memberCode: string; fullName: string } | null;
+}
+
+export interface FinancialSummaryData {
+  totalFund: number;
+  totalExpense: number;
+  currentBalance: number;
+  fundCount: number;
+  expenseCount: number;
+  categoryBreakdown: Array<{ category: string; totalSpent: number; count: number }>;
+  projectExpenses: Array<{ projectId: string | null; project?: { id: string; projectCode: string; title: string } | null; totalSpent: number; count: number }>;
+}
+
+export interface FundItem {
+  id: string;
+  organizationId: string;
+  fundCode: string;
+  contributorName: string;
+  contributorUserId: string | null;
+  amount: number | string;
+  date: string;
+  purpose: string;
+  paymentMethod: string;
+  receiptUrl: string | null;
+  notes: string | null;
+  status: "VALID" | "VOIDED";
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+  contributorUser?: { id: string; memberCode: string; fullName: string } | null;
+  creator?: { id: string; memberCode: string; fullName: string };
+}
+
+export interface ExpenseItem {
+  id: string;
+  organizationId: string;
+  expenseCode: string;
+  title: string;
+  category: string;
+  amount: number | string;
+  date: string;
+  projectId: string | null;
+  vendor: string | null;
+  receiptUrl: string | null;
+  description: string | null;
+  status: "VALID" | "VOIDED";
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+  project?: { id: string; projectCode: string; title: string } | null;
+  creator?: { id: string; memberCode: string; fullName: string };
+}
+
+export interface TransactionItem {
+  id: string;
+  code: string;
+  type: "FUND" | "EXPENSE";
+  title: string;
+  category: string;
+  amount: number;
+  date: string;
+  status: "VALID" | "VOIDED";
+  receiptUrl: string | null;
+  notes: string | null;
+  projectTitle?: string;
+  creatorName: string;
 }
 
 export class ApiError extends Error {

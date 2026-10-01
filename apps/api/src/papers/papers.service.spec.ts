@@ -13,11 +13,17 @@ const member: AuthenticatedUser = {
   organizationId: 'org-a',
   memberCode: 'INT-000001',
   email: 'member@example.com',
+  firstName: 'Research',
+  lastName: 'Member',
   fullName: 'Research Member',
   profileImageUrl: null,
+  bio: null,
+  phone: null,
   organization: { id: 'org-a', name: 'Organization A', slug: 'org-a', logoUrl: null },
   roles: ['MEMBER'],
   permissions: ['PAPER_VIEW', 'PAPER_ASSIGN'],
+  skills: [],
+  researchAreas: [],
 };
 
 const makePrisma = () => ({

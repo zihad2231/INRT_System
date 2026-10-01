@@ -12,7 +12,7 @@ export const SESSION_COOKIE_NAME = 'intellinova_session';
 export const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 const sessionUserInclude = {
-  organization: { select: { id: true, name: true, slug: true, logoUrl: true } },
+  organization: { select: { id: true, name: true, slug: true, logoUrl: true, bgImageUrl: true, accentColor: true, loginBgImageUrl: true, loginBgOpacity: true } },
   userRoles: {
     include: {
       role: {
@@ -48,7 +48,7 @@ export interface AuthenticatedUser {
   profileImageUrl: string | null;
   bio: string | null;
   phone: string | null;
-  organization: { id: string; name: string; slug: string; logoUrl: string | null };
+  organization: { id: string; name: string; slug: string; logoUrl: string | null; bgImageUrl?: string | null; accentColor?: string | null; loginBgImageUrl?: string | null; loginBgOpacity?: number | null };
   roles: string[];
   permissions: string[];
   skills: { id: string; name: string; category: string | null; proficiency: string | null; yearsExperience: number | null }[];
@@ -187,14 +187,14 @@ export class AuthService {
         .filter(([, granted]) => granted)
         .map(([code]) => code)
         .sort(),
-      skills: user.userSkills.map((us) => ({
+      skills: (user.userSkills ?? []).map((us) => ({
         id: us.skill.id,
         name: us.skill.name,
         category: us.skill.category,
         proficiency: us.proficiency,
         yearsExperience: us.yearsExperience ? Number(us.yearsExperience) : null,
       })),
-      researchAreas: user.userResearchAreas.map((ura) => ({
+      researchAreas: (user.userResearchAreas ?? []).map((ura) => ({
         id: ura.researchArea.id,
         name: ura.researchArea.name,
         proficiency: ura.proficiency,

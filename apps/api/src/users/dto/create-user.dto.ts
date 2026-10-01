@@ -8,6 +8,7 @@ import {
   MaxLength,
   MinLength,
 } from 'class-validator';
+import { UserStatus } from '@prisma/client';
 
 export class CreateUserDto {
   @IsOptional()
@@ -44,4 +45,7 @@ export class CreateUserDto {
   @IsString({ each: true })
   @Length(1, 50, { each: true })
   roleCodes?: string[];
+
+  @IsOptional()
+  status?: UserStatus;
 }

@@ -8,6 +8,10 @@ import { apiGet, authApi } from "@/lib/api-client";
 interface PublicOrg {
   name: string;
   logoUrl: string | null;
+  bgImageUrl?: string | null;
+  accentColor?: string | null;
+  loginBgImageUrl?: string | null;
+  loginBgOpacity?: number | null;
   description: string | null;
 }
 
@@ -35,6 +39,8 @@ export default function LoginPage() {
 
   const teamName = org?.name || "INRT - IntelliNova Research Team";
   const teamInitial = teamName.charAt(0).toUpperCase();
+  const loginBg = org?.loginBgImageUrl;
+  const loginOpacity = org?.loginBgOpacity ?? 0.8;
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -53,8 +59,19 @@ export default function LoginPage() {
 
   return (
     <main className="relative flex min-h-screen overflow-hidden bg-[#f4f7f5] text-[#17211f]">
-      <div className="absolute -left-32 -top-40 size-[440px] rounded-full bg-[#dcefe7] blur-3xl opacity-70" />
-      <div className="absolute -bottom-52 right-[35%] size-[500px] rounded-full bg-[#e7eee5] blur-3xl opacity-70" />
+      {/* Admin Custom Login Background Image (No blur, with custom opacity control) */}
+      {loginBg && (
+        <div
+          className="absolute inset-0 z-0 bg-cover bg-center bg-no-repeat transition-opacity duration-500 pointer-events-none"
+          style={{
+            backgroundImage: `url("${loginBg}")`,
+            opacity: loginOpacity,
+          }}
+        />
+      )}
+
+      <div className="absolute -left-32 -top-40 size-[440px] rounded-full bg-[#dcefe7] blur-3xl opacity-70 pointer-events-none" />
+      <div className="absolute -bottom-52 right-[35%] size-[500px] rounded-full bg-[#e7eee5] blur-3xl opacity-70 pointer-events-none" />
 
       {/* Left Banner */}
       <section className="relative hidden w-[52%] flex-col justify-between overflow-hidden bg-[#123c32] px-14 py-12 text-white lg:flex xl:px-20">

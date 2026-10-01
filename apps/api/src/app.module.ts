@@ -20,6 +20,8 @@ import { AuditModule } from './audit/audit.module.js';
 import { NotificationsModule } from './notifications/notifications.module.js';
 import { ExportsModule } from './exports/exports.module.js';
 import { OrganizationsModule } from './organizations/organizations.module.js';
+import { ComponentsModule } from './components/components.module.js';
+import { FinanceModule } from './finance/finance.module.js';
 
 @Module({
   imports: [
@@ -44,6 +46,8 @@ import { OrganizationsModule } from './organizations/organizations.module.js';
     MediaModule,
     DashboardModule,
     AssetsModule,
+    ComponentsModule,
+    FinanceModule,
     AuditModule,
     NotificationsModule,
     ExportsModule,
