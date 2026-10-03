@@ -2,6 +2,7 @@ import {
   Controller,
   HttpCode,
   HttpStatus,
+  Logger,
   Post,
   Req,
   UploadedFile,
@@ -22,6 +23,8 @@ const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 @Controller('media')
 @UseGuards(SessionAuthGuard)
 export class MediaController {
+  private readonly logger = new Logger(MediaController.name);
+
   constructor(
     private readonly imageBb: ImageBbService,
     private readonly organizationLogo: OrganizationLogoService,
@@ -35,6 +38,9 @@ export class MediaController {
     }),
   )
   async uploadImage(@UploadedFile() file?: UploadedImageFile) {
+    this.logger.log(`POST /media/images received file: ${file?.originalname ?? 'NONE'}`);
+    console.log(`[MediaController] POST /media/images received file: ${file?.originalname ?? 'NONE'}`);
+
     if (!file) {
       throw new BadRequestException({
         code: 'IMAGE_REQUIRED',
@@ -63,6 +69,13 @@ export class MediaController {
     @Req() request: AuthenticatedRequest,
     @UploadedFile() file?: UploadedImageFile,
   ) {
+    this.logger.log(
+      `POST /media/organization-logo received file: ${file?.originalname ?? 'NONE'} from user: ${request.user?.id}`,
+    );
+    console.log(
+      `[MediaController] POST /media/organization-logo received file: ${file?.originalname ?? 'NONE'} from user: ${request.user?.id}`,
+    );
+
     if (!file) {
       throw new BadRequestException({
         code: 'IMAGE_REQUIRED',

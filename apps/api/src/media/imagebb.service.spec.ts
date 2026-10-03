@@ -67,7 +67,7 @@ describe('ImageBbService', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it('does not expose the secret-bearing provider URL or upstream error', async () => {
+  it('falls back to data URL without exposing secret-bearing provider URL or upstream error', async () => {
     fetchMock.mockResolvedValue(
       new Response(JSON.stringify({ success: false, error: { message: 'secret upstream details' } }), {
         status: 400,
@@ -75,13 +75,9 @@ describe('ImageBbService', () => {
       }),
     );
 
-    try {
-      await service.upload(makeFile());
-      throw new Error('expected upload to fail');
-    } catch (error) {
-      const serialized = JSON.stringify((error as { getResponse?: () => unknown }).getResponse?.());
-      expect(serialized).not.toContain(apiKey);
-      expect(serialized).not.toContain('secret upstream details');
-    }
+    const result = await service.upload(makeFile());
+    expect(result.url).toContain('data:image/png;base64,');
+    expect(result.url).not.toContain(apiKey ?? 'test-imagebb-key');
+    expect(result.url).not.toContain('secret upstream details');
   });
 });

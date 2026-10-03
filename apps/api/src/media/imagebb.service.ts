@@ -2,6 +2,7 @@ import {
   BadGatewayException,
   BadRequestException,
   Injectable,
+  Logger,
   PayloadTooLargeException,
   ServiceUnavailableException,
 } from '@nestjs/common';
@@ -24,16 +25,26 @@ export interface UploadedImageFile {
 
 @Injectable()
 export class ImageBbService {
+  private readonly logger = new Logger(ImageBbService.name);
+
   constructor(private readonly config: ConfigService) {}
 
   async upload(file: UploadedImageFile): Promise<{ url: string }> {
+    this.logger.log(`[Backend Upload Step 1/4] Processing image file: "${file?.originalname}", size=${file?.size} bytes`);
+    console.log(`[Backend Upload Step 1/4] Processing image file: "${file?.originalname}", size=${file?.size} bytes`);
+
     if (!file?.buffer?.length) {
+      this.logger.error('[Backend Upload Error] No image buffer provided');
+      console.error('[Backend Upload Error] No image buffer provided');
       throw new BadRequestException({
         code: 'IMAGE_REQUIRED',
         message: 'Select an image to upload.',
       });
     }
+
     if (file.size > MAX_IMAGE_BYTES) {
+      this.logger.error(`[Backend Upload Error] File size ${file.size} exceeds maximum ${MAX_IMAGE_BYTES} bytes`);
+      console.error(`[Backend Upload Error] File size ${file.size} exceeds maximum ${MAX_IMAGE_BYTES} bytes`);
       throw new PayloadTooLargeException({
         code: 'IMAGE_TOO_LARGE',
         message: 'Image must be 10 MB or smaller.',
@@ -41,7 +52,12 @@ export class ImageBbService {
     }
 
     const detectedType = this.detectImageType(file.buffer);
+    this.logger.log(`[Backend Upload Step 2/4] Detected MIME type: ${detectedType || 'UNKNOWN'}`);
+    console.log(`[Backend Upload Step 2/4] Detected MIME type: ${detectedType || 'UNKNOWN'}`);
+
     if (!detectedType) {
+      this.logger.error('[Backend Upload Error] File signature does not match JPEG, PNG, GIF, or WebP');
+      console.error('[Backend Upload Error] File signature does not match JPEG, PNG, GIF, or WebP');
       throw new BadRequestException({
         code: 'INVALID_IMAGE',
         message: 'Only valid JPEG, PNG, GIF, or WebP image files are accepted.',
@@ -49,15 +65,27 @@ export class ImageBbService {
     }
 
     const apiKey = this.config.get<string>('IMAGEBB_API_KEY');
+    this.logger.log(`[Backend Upload Step 3/4] Checking IMAGEBB_API_KEY: ${apiKey ? 'KEY_FOUND' : 'NOT_CONFIGURED'}`);
+    console.log(`[Backend Upload Step 3/4] Checking IMAGEBB_API_KEY: ${apiKey ? 'KEY_FOUND' : 'NOT_CONFIGURED'}`);
+
     if (!apiKey) {
+      this.logger.error(
+        '[Backend Upload Error] IMAGEBB_API_KEY environment variable is not configured on server! Image upload to ImgBB cannot proceed.',
+      );
+      console.error(
+        '[Backend Upload Error] IMAGEBB_API_KEY environment variable is not configured on server! Image upload to ImgBB cannot proceed.',
+      );
       throw new ServiceUnavailableException({
         code: 'IMAGE_STORAGE_NOT_CONFIGURED',
-        message: 'Image uploads are not configured.',
+        message: 'Image uploads are not configured on the server. Please add IMAGEBB_API_KEY environment variable in Render/host settings.',
       });
     }
 
     const form = new FormData();
     form.append('image', file.buffer.toString('base64'));
+
+    this.logger.log(`[Backend Upload Step 4/4] Uploading to ImgBB API (${IMAGEBB_UPLOAD_URL})...`);
+    console.log(`[Backend Upload Step 4/4] Uploading to ImgBB API (${IMAGEBB_UPLOAD_URL})...`);
 
     let response: Response | undefined;
     try {
@@ -66,8 +94,9 @@ export class ImageBbService {
         body: form,
         signal: AbortSignal.timeout(20_000),
       });
-    } catch {
-      // Fallback: if network fails, use self-contained data URL
+    } catch (networkErr) {
+      this.logger.warn(`[Backend Upload Warning] Fetch to ImgBB failed: ${networkErr}. Falling back to Base64 Data URL.`);
+      console.warn(`[Backend Upload Warning] Fetch to ImgBB failed: ${networkErr}. Falling back to Base64 Data URL.`);
       const dataUrl = `data:${detectedType};base64,${file.buffer.toString('base64')}`;
       return { url: dataUrl };
     }
@@ -75,19 +104,23 @@ export class ImageBbService {
     let body: ImageBbResponse | null = null;
     try {
       body = (await response.json()) as ImageBbResponse;
-    } catch {
-      // Fallback if response is invalid
+    } catch (parseErr) {
+      this.logger.warn(`[Backend Upload Warning] Could not parse ImgBB response JSON: ${parseErr}. Falling back to Base64 Data URL.`);
+      console.warn(`[Backend Upload Warning] Could not parse ImgBB response JSON: ${parseErr}. Falling back to Base64 Data URL.`);
       const dataUrl = `data:${detectedType};base64,${file.buffer.toString('base64')}`;
       return { url: dataUrl };
     }
 
     const url = body?.data?.url ?? body?.data?.display_url;
     if (!response.ok || !body?.success || !url) {
-      // If ImageBB is down for maintenance or returned an error, fallback to data URL
+      this.logger.warn(`[Backend Upload Warning] ImgBB returned unsuccessful response: status=${response.status}, error=${body?.error?.message}. Falling back to Base64 Data URL.`);
+      console.warn(`[Backend Upload Warning] ImgBB returned unsuccessful response: status=${response.status}, error=${body?.error?.message}. Falling back to Base64 Data URL.`);
       const dataUrl = `data:${detectedType};base64,${file.buffer.toString('base64')}`;
       return { url: dataUrl };
     }
 
+    this.logger.log(`[Backend Upload Success] Image uploaded successfully to ImgBB: ${url}`);
+    console.log(`[Backend Upload Success] Image uploaded successfully to ImgBB: ${url}`);
     return { url };
   }
 

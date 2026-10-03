@@ -280,14 +280,28 @@ async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
       },
       cache: "no-store",
     });
-  } catch {
+  } catch (networkErr) {
+    console.error(`[API Network Error] Unable to connect to server at ${API_BASE_URL}${path}:`, networkErr);
     throw new ApiError("API server-এ সংযোগ করা যাচ্ছে না। API চালু আছে কি না দেখুন।");
   }
 
   const body = (await response.json().catch(() => null)) as ApiEnvelope<T> | null;
   if (!response.ok) {
+    console.warn(`[API Response Warning] ${init?.method || "GET"} ${path} returned HTTP status ${response.status}:`, body);
+    const apiBody = body as any;
+    const customMessage =
+      apiBody?.error?.message ??
+      (Array.isArray(apiBody?.message) ? apiBody.message[0] : apiBody?.message);
+
     if (response.status === 503) {
-      throw new ApiError("Database এখনো প্রস্তুত নয়। PostgreSQL DATABASE_URL configure করুন।");
+      if (customMessage) {
+        throw new ApiError(
+          customMessage,
+          apiBody?.error?.code ?? apiBody?.code,
+          apiBody?.error?.details ?? apiBody?.details,
+        );
+      }
+      throw new ApiError("Service Unavailable (503). Server-এর configurations বা Database চেক করুন।");
     }
     if (response.status === 401) {
       if (typeof window !== "undefined" && path === "/auth/me") {
@@ -295,11 +309,7 @@ async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
       }
       throw new ApiError(path === "/auth/me" ? "আপনার session শেষ হয়েছে। আবার sign in করুন।" : "ইমেইল অথবা পাসওয়ার্ড সঠিক নয়।");
     }
-    const apiBody = body as any;
-    const errorMessage =
-      apiBody?.error?.message ??
-      (Array.isArray(apiBody?.message) ? apiBody.message[0] : apiBody?.message) ??
-      "অনুরোধটি সম্পন্ন করা যায়নি। আবার চেষ্টা করুন।";
+    const errorMessage = customMessage ?? "অনুরোধটি সম্পন্ন করা যায়নি। আবার চেষ্টা করুন।";
 
     throw new ApiError(
       errorMessage,
@@ -354,7 +364,35 @@ export function apiDelete<T>(path: string, payload?: unknown): Promise<T> {
 }
 
 export function apiRequestMultipart<T>(path: string, file: File): Promise<T> {
+  const startTime = Date.now();
+  const fileInfo = {
+    name: file.name,
+    sizeBytes: file.size,
+    sizeFormatted: `${(file.size / 1024).toFixed(2)} KB`,
+    type: file.type || "unknown",
+    lastModified: new Date(file.lastModified).toISOString(),
+  };
+
+  console.log(`📷 [Image Upload Step 1/3] File selected:`, fileInfo);
+  console.log(`📷 [Image Upload Step 2/3] Preparing FormData and sending POST request to ${API_BASE_URL}${path}...`);
+
   const form = new FormData();
   form.append("image", file);
-  return apiRequest<T>(path, { method: "POST", body: form });
+
+  return apiRequest<T>(path, { method: "POST", body: form })
+    .then((result) => {
+      const duration = Date.now() - startTime;
+      console.log(`✅ [Image Upload Step 3/3] Upload successful (${duration}ms)! Result:`, result);
+      return result;
+    })
+    .catch((error) => {
+      const duration = Date.now() - startTime;
+      console.error(`❌ [Image Upload ERROR] Upload failed (${duration}ms) for ${path}:`, {
+        error,
+        message: error instanceof Error ? error.message : String(error),
+        code: (error as any)?.code,
+        details: (error as any)?.details,
+      });
+      throw error;
+    });
 }
